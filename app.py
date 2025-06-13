@@ -108,7 +108,7 @@ async def proxy(url: str, request: Request):
         'Connection': 'keep-alive'
     }
     session.headers.update(default_headers)
-    max_retries = 30
+    max_retries = 35
     attempts = 0
     tried_without_range = False
 
@@ -117,10 +117,6 @@ async def proxy(url: str, request: Request):
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
             logging.debug(f"[HLS Proxy] URL inválida: {url}")
             raise HTTPException(status_code=400, detail="Nenhuma URL compatível com o proxy")
-        
-        if request.is_disconnected():
-            logging.debug('Cliente desconectado')
-            break
         
         logging.debug(f'Tentativa {attempts}')
         logging.debug(f'Acessando: {url}')
