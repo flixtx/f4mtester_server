@@ -108,7 +108,7 @@ async def proxy(url: str, request: Request):
         'Connection': 'keep-alive'
     }
     session.headers.update(default_headers)
-    max_retries = 16
+    max_retries = 25
     attempts = 0
     tried_without_range = False
 
@@ -118,6 +118,7 @@ async def proxy(url: str, request: Request):
             logging.debug(f"[HLS Proxy] URL inválida: {url}")
             raise HTTPException(status_code=400, detail="Nenhuma URL compatível com o proxy")
         
+        logging.debug(f'Tentativa {attempts}')
         logging.debug(f'Acessando: {url}')
 
         try:
