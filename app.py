@@ -194,6 +194,7 @@ async def proxy(url: str, request: Request):
                     raise HTTPException(status_code=416, detail="Range Not Satisfiable")
 
             elif response.status_code == 404 and ('.ts' in url.lower() or '/hl' in url.lower()):
+                logging.debug(f'codigo: {response.status_code}')
                 #print(f"[HLS Proxy] Segmento HLS não encontrado: {url}")
                 if client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
                     last_chunks = IP_CACHE_TS[client_ip][-5:]
@@ -208,6 +209,7 @@ async def proxy(url: str, request: Request):
                 continue
 
             else:
+                logging.debug(f'codigo: {response.status_code}')
                 AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32].decode()
                 if not '.m3u8' in url.lower():
                     if '.mp4' in url.lower():
