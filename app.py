@@ -132,9 +132,10 @@ async def proxy(url: str, request: Request):
                 headers = default_headers
                 response = session.get(url, headers=headers, allow_redirects=True, stream=True, timeout=60)
             elif ('.ts' in url.lower() or '/hl' in url.lower() or '.m3u8' in url.lower() or '.mp4' in url.lower()) and client_ip in AGENT_OF_CHAOS:
+                headers = default_headers
                 custom_header = {'User-Agent': AGENT_OF_CHAOS.get(client_ip, DEFAULT_USER_AGENT)}
-                headers = custom_header
-                response = session.get(url, headers=headers, allow_redirects=True, stream=True, timeout=60)
+                headers.update(custom_header)
+                response = requests.get(url, headers=headers, allow_redirects=True, stream=True, timeout=60)
             else:
                 headers = default_headers
                 response = session.get(url, allow_redirects=True, stream=True, timeout=60)
