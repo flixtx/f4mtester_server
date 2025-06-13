@@ -10,6 +10,12 @@ from anyio import to_thread
 from requests.exceptions import ConnectionError, RequestException
 from urllib3.exceptions import IncompleteRead
 import time
+import logging
+
+logging.basicConfig(
+    level=logging.DEBUG,  # Define o nível de log como DEBUG
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
 app = FastAPI()
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
@@ -28,7 +34,7 @@ def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) ->
             absolute_url = urljoin(base_url + '/', segment_url)
             # Verificar se a URL é válida e corresponde a um segmento esperado
             if not (absolute_url.endswith('.ts') or '/hl' in absolute_url.lower() or absolute_url.endswith('.m3u8')):
-                print(f"[HLS Proxy] Ignorando URL inválida no m3u8: {absolute_url}")
+                logging.debug(f"[HLS Proxy] Ignorando URL inválida no m3u8: {absolute_url}")
                 return segment_url
             scheme = request.url.scheme
             host = request.url.hostname
@@ -36,7 +42,7 @@ def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) ->
             proxied_url = f"{scheme}://{host}:{port}/proxy?url={urllib.parse.quote(absolute_url)}"
             return proxied_url
         except ValueError as e:
-            print(f"[HLS Proxy] Erro ao resolver URL {segment_url}: {e}")
+            logging.debug(f"[HLS Proxy] Erro ao resolver URL {segment_url}: {e}")
             return segment_url
 
     # Reescrever apenas linhas que não começam com # e não estão vazias
@@ -66,7 +72,7 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
                             IP_CACHE_TS[client_ip].pop(0)
                     yield chunk
         except (IncompleteRead, ConnectionError) as e:
-            print(f"[HLS Proxy] Erro ao processar chunks (bytes lidos: {bytes_read}): {e}")
+            logging.debug(f"[HLS Proxy] Erro ao processar chunks (bytes lidos: {bytes_read}): {e}")
             if mode_ts and client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
                 for chunk in IP_CACHE_TS[client_ip][-5:]:
                     yield chunk
@@ -74,7 +80,7 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
                 for chunk in IP_CACHE_MP4[client_ip][-5:]:
                     yield chunk
         except Exception as e:
-            print(f"[HLS Proxy] Erro inesperado ao processar chunks: {e}")
+            logging.debug(f"[HLS Proxy] Erro inesperado ao processar chunks: {e}")
         finally:
             sess.close()
 
@@ -109,8 +115,10 @@ async def proxy(url: str, request: Request):
     while attempts < max_retries:
         # Validação inicial da URL
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
-            print(f"[HLS Proxy] URL inválida: {url}")
+            logging.debug(f"[HLS Proxy] URL inválida: {url}")
             raise HTTPException(status_code=400, detail="Nenhuma URL compatível com o proxy")
+        
+        logging.debug(f'Acessando: {url}')
 
         try:
             range_header = request.headers.get('Range')
@@ -130,7 +138,10 @@ async def proxy(url: str, request: Request):
                 headers = default_headers
                 response = session.get(url, allow_redirects=True, stream=True, timeout=60)
 
+            logging.debug(f'Acessando com headers: {headers}')
+
             if response.status_code in (200, 206):
+                logging.debug(f'acesso ok codigo: {response.status_code}')
                 content_type = response.headers.get('content-type', '').lower()
 
                 if 'application/vnd.apple.mpegurl' in content_type or '.m3u8' in url.lower():
@@ -220,6 +231,7 @@ async def proxy(url: str, request: Request):
                 attempts += 1
 
         except RequestException as e:
+            logging.debug(f'Erro desconhecido {e}')
             AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32].decode()
             if not '.m3u8' in url.lower():
                 if '.mp4' in url.lower():
