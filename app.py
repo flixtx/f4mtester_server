@@ -143,6 +143,11 @@ async def proxy(url: str, request: Request):
             logging.debug(f'Acessando com headers: {headers}')
 
             if response.status_code in (200, 206):
+                try:
+                    if client_ip in AGENT_OF_CHAOS:
+                        del AGENT_OF_CHAOS[client_ip]
+                except:
+                    pass
                 logging.debug(f'acesso ok codigo: {response.status_code}')
                 content_type = response.headers.get('content-type', '').lower()
 
