@@ -211,12 +211,12 @@ async def proxy(url: str, request: Request):
                         headers={'Content-Type': media_type}
                     )
                 attempts += 1
-                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32].decode()
-                continue
+                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
+                time.sleep(2)
 
             else:
                 logging.debug(f'codigo: {response.status_code}')
-                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32].decode()
+                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
                 if not '.m3u8' in url.lower():
                     if '.mp4' in url.lower():
                         if client_ip in IP_CACHE_MP4 and IP_CACHE_MP4[client_ip]:
@@ -238,10 +238,11 @@ async def proxy(url: str, request: Request):
                             )
 
                 attempts += 1
+                time.sleep(2)
 
         except RequestException as e:
             logging.debug(f'Erro desconhecido {e}')
-            AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32].decode()
+            AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
             if not '.m3u8' in url.lower():
                 if '.mp4' in url.lower():
                     if client_ip in IP_CACHE_MP4 and IP_CACHE_MP4[client_ip]:
@@ -262,6 +263,7 @@ async def proxy(url: str, request: Request):
                             headers={'Content-Type': media_type}
                         )
             attempts += 1
+            time.sleep(2)
 
     raise HTTPException(status_code=502, detail="Falha ao conectar após múltiplas tentativas")
 
