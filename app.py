@@ -270,7 +270,7 @@ async def proxy(url: str, request: Request):
 @app.get("/check")
 async def check(url: str, request: Request):
     session = requests.Session()
-    if '.m3u8' in url:
+    if '.m3u8' in url or 'get.php' in url:
         default_headers = {
         "User-Agent": DEFAULT_USER_AGENT,
         'Accept-Encoding': 'identity',
