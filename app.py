@@ -267,6 +267,28 @@ async def proxy(url: str, request: Request):
 
     raise HTTPException(status_code=502, detail="Falha ao conectar após múltiplas tentativas")
 
+@app.get("/check")
+async def check(url: str, request: Request):
+    session = requests.Session()
+    if '.m3u8' in url:
+        default_headers = {
+        "User-Agent": DEFAULT_USER_AGENT,
+        'Accept-Encoding': 'identity',
+        'Accept': '*/*',
+        'Connection': 'keep-alive'
+        }
+        response = session.get(url, headers=default_headers, allow_redirects=True, stream=True, timeout=15)
+        if response.status_code != 200:
+            default_headers.update({'User-Agent': binascii.b2a_hex(os.urandom(20))[:32]})
+            response = session.get(url, headers=default_headers, allow_redirects=True, stream=True, timeout=15)
+        try:
+            return {'code': response.status_code}
+        except:
+            return {'code': 'error'}
+    else:
+        return {'message': 'only m3u8 links'}
+
+
 @app.get("/")
 def main_index():
     return {"message": "F4MTESTER PROXY"}
