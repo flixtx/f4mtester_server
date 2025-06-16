@@ -14,34 +14,35 @@ import time
 import logging
 
 logging.basicConfig(
-    level=logging.DEBUG,  # Define o nível de log como DEBUG
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
 app = FastAPI()
-# Adicionar middleware de CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permite todas as origens
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Permite todos os métodos (GET, POST, etc.)
-    allow_headers=["*"],  # Permite todos os cabeçalhos
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
+# Modificar os caches para usar uma chave composta de IP e URL
 IP_CACHE_TS = {}
 IP_CACHE_MP4 = {}
 AGENT_OF_CHAOS = {}
 
+def get_cache_key(client_ip: str, url: str) -> str:
+    """Gera uma chave única combinando client_ip e url."""
+    return f"{client_ip}:{url}"
+
 def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) -> str:
     def replace_url(match):
         segment_url = match.group(0).strip()
-        # Ignorar linhas que começam com #, estão vazias, ou não são URLs válidas
         if segment_url.startswith('#') or not segment_url or segment_url == '/':
             return segment_url
-        # Resolver URL absoluta
         try:
             absolute_url = urljoin(base_url + '/', segment_url)
-            # Verificar se a URL é válida e corresponde a um segmento esperado
             if not (absolute_url.endswith('.ts') or '/hl' in absolute_url.lower() or absolute_url.endswith('.m3u8')):
                 logging.debug(f"[HLS Proxy] Ignorando URL inválida no m3u8: {absolute_url}")
                 return segment_url
@@ -54,10 +55,10 @@ def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) ->
             logging.debug(f"[HLS Proxy] Erro ao resolver URL {segment_url}: {e}")
             return segment_url
 
-    # Reescrever apenas linhas que não começam com # e não estão vazias
     return re.sub(r'^(?!#)\S+', replace_url, playlist_content, flags=re.MULTILINE)
 
 async def stream_response(response, client_ip: str, url: str, headers: dict, sess: requests.Session):
+    cache_key = get_cache_key(client_ip, url)
     def generate_chunks(response):
         mode_ts = False
         bytes_read = 0
@@ -67,26 +68,26 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
                     bytes_read += len(chunk)
                     if '.mp4' in response.url.lower():
                         mode_ts = False
-                        if client_ip not in IP_CACHE_MP4:
-                            IP_CACHE_MP4[client_ip] = []
-                        IP_CACHE_MP4[client_ip].append(chunk)
-                        if len(IP_CACHE_MP4[client_ip]) > 20:
-                            IP_CACHE_MP4[client_ip].pop(0)
+                        if cache_key not in IP_CACHE_MP4:
+                            IP_CACHE_MP4[cache_key] = []
+                        IP_CACHE_MP4[cache_key].append(chunk)
+                        if len(IP_CACHE_MP4[cache_key]) > 20:
+                            IP_CACHE_MP4[cache_key].pop(0)
                     elif '.ts' in response.url.lower() or '/hl' in response.url.lower():
                         mode_ts = True
-                        if client_ip not in IP_CACHE_TS:
-                            IP_CACHE_TS[client_ip] = []
-                        IP_CACHE_TS[client_ip].append(chunk)
-                        if len(IP_CACHE_TS[client_ip]) > 20:
-                            IP_CACHE_TS[client_ip].pop(0)
+                        if cache_key not in IP_CACHE_TS:
+                            IP_CACHE_TS[cache_key] = []
+                        IP_CACHE_TS[cache_key].append(chunk)
+                        if len(IP_CACHE_TS[cache_key]) > 20:
+                            IP_CACHE_TS[cache_key].pop(0)
                     yield chunk
         except (IncompleteRead, ConnectionError) as e:
             logging.debug(f"[HLS Proxy] Erro ao processar chunks (bytes lidos: {bytes_read}): {e}")
-            if mode_ts and client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
-                for chunk in IP_CACHE_TS[client_ip][-5:]:
+            if mode_ts and cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                for chunk in IP_CACHE_TS[cache_key][-5:]:
                     yield chunk
-            elif not mode_ts and client_ip in IP_CACHE_MP4 and IP_CACHE_MP4[client_ip]:
-                for chunk in IP_CACHE_MP4[client_ip][-5:]:
+            elif not mode_ts and cache_key in IP_CACHE_MP4 and IP_CACHE_MP4[cache_key]:
+                for chunk in IP_CACHE_MP4[cache_key][-5:]:
                     yield chunk
         except Exception as e:
             logging.debug(f"[HLS Proxy] Erro inesperado ao processar chunks: {e}")
@@ -106,6 +107,7 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
 @app.get("/proxy")
 async def proxy(url: str, request: Request):
     client_ip = request.client.host
+    cache_key = get_cache_key(client_ip, url)
     if not url:
         raise HTTPException(status_code=400, detail="No URL provided")
 
@@ -122,7 +124,6 @@ async def proxy(url: str, request: Request):
     tried_without_range = False
 
     while attempts < max_retries:
-        # Validação inicial da URL
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
             logging.debug(f"[HLS Proxy] URL inválida: {url}")
             raise HTTPException(status_code=400, detail="Nenhuma URL compatível com o proxy")
@@ -140,9 +141,9 @@ async def proxy(url: str, request: Request):
             if '.mp4' in url.lower():
                 headers = default_headers
                 response = session.get(url, headers=headers, allow_redirects=True, stream=True, timeout=60)
-            elif ('.ts' in url.lower() or '/hl' in url.lower() or '.m3u8' in url.lower() or '.mp4' in url.lower()) and client_ip in AGENT_OF_CHAOS:
+            elif ('.ts' in url.lower() or '/hl' in url.lower() or '.m3u8' in url.lower() or '.mp4' in url.lower()) and cache_key in AGENT_OF_CHAOS:
                 headers = default_headers
-                custom_header = {'User-Agent': AGENT_OF_CHAOS.get(client_ip, DEFAULT_USER_AGENT)}
+                custom_header = {'User-Agent': AGENT_OF_CHAOS.get(cache_key, DEFAULT_USER_AGENT)}
                 headers.update(custom_header)
                 response = requests.get(url, headers=headers, allow_redirects=True, stream=True, timeout=60)
             else:
@@ -153,8 +154,13 @@ async def proxy(url: str, request: Request):
 
             if response.status_code in (200, 206):
                 try:
-                    if client_ip in AGENT_OF_CHAOS:
-                        del AGENT_OF_CHAOS[client_ip]
+                    if cache_key in AGENT_OF_CHAOS:
+                        del AGENT_OF_CHAOS[cache_key]
+                    # Limpar caches quando a requisição for bem-sucedida
+                    if cache_key in IP_CACHE_MP4:
+                        del IP_CACHE_MP4[cache_key]
+                    if cache_key in IP_CACHE_TS:
+                        del IP_CACHE_TS[cache_key]
                 except:
                     pass
                 logging.debug(f'acesso ok codigo: {response.status_code}')
@@ -168,13 +174,6 @@ async def proxy(url: str, request: Request):
                         content=iter([rewritten_playlist.encode('utf-8')]),
                         media_type='application/vnd.apple.mpegurl'
                     )
-
-                if '.mp4' in url.lower() and client_ip in IP_CACHE_MP4:
-                    IP_CACHE_MP4[client_ip] = []
-                elif '.ts' in url.lower() and client_ip in IP_CACHE_TS:
-                    IP_CACHE_TS[client_ip] = []
-                elif '/hl' in url.lower() and client_ip in IP_CACHE_TS:
-                    IP_CACHE_TS[client_ip] = []
 
                 response_headers = {
                     key: value for key, value in response.headers.items()
@@ -200,9 +199,7 @@ async def proxy(url: str, request: Request):
                 )
 
             elif response.status_code == 416:
-                #print(f"[HLS Proxy] Erro 416: Range Not Satisfiable para {url}")
                 if range_header and not tried_without_range:
-                    #print(f"[HLS Proxy] Tentando novamente sem header Range")
                     tried_without_range = True
                     continue
                 else:
@@ -210,9 +207,8 @@ async def proxy(url: str, request: Request):
 
             elif response.status_code == 404 and ('.ts' in url.lower() or '/hl' in url.lower()):
                 logging.debug(f'codigo: {response.status_code}')
-                #print(f"[HLS Proxy] Segmento HLS não encontrado: {url}")
-                if client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
-                    last_chunks = IP_CACHE_TS[client_ip][-5:]
+                if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                    last_chunks = IP_CACHE_TS[cache_key][-5:]
                     media_type = 'video/mp2t'
                     return StreamingResponse(
                         content=iter(last_chunks),
@@ -220,16 +216,16 @@ async def proxy(url: str, request: Request):
                         headers={'Content-Type': media_type}
                     )
                 attempts += 1
-                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
+                AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]
                 time.sleep(2)
 
             else:
                 logging.debug(f'codigo: {response.status_code}')
-                AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
+                AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]
                 if not '.m3u8' in url.lower():
                     if '.mp4' in url.lower():
-                        if client_ip in IP_CACHE_MP4 and IP_CACHE_MP4[client_ip]:
-                            last_chunks = IP_CACHE_MP4[client_ip][-5:]
+                        if cache_key in IP_CACHE_MP4 and IP_CACHE_MP4[cache_key]:
+                            last_chunks = IP_CACHE_MP4[cache_key][-5:]
                             media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
                             return StreamingResponse(
                                 content=iter(last_chunks),
@@ -237,8 +233,8 @@ async def proxy(url: str, request: Request):
                                 headers={'Content-Type': media_type}
                             )
                     if '.ts' in url.lower() or '/hl' in url.lower():
-                        if client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
-                            last_chunks = IP_CACHE_TS[client_ip][-5:]
+                        if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                            last_chunks = IP_CACHE_TS[cache_key][-5:]
                             media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
                             return StreamingResponse(
                                 content=iter(last_chunks),
@@ -251,11 +247,11 @@ async def proxy(url: str, request: Request):
 
         except RequestException as e:
             logging.debug(f'Erro desconhecido {e}')
-            AGENT_OF_CHAOS[client_ip] = binascii.b2a_hex(os.urandom(20))[:32]
+            AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]
             if not '.m3u8' in url.lower():
                 if '.mp4' in url.lower():
-                    if client_ip in IP_CACHE_MP4 and IP_CACHE_MP4[client_ip]:
-                        last_chunks = IP_CACHE_MP4[client_ip][-5:]
+                    if cache_key in IP_CACHE_MP4 and IP_CACHE_MP4[cache_key]:
+                        last_chunks = IP_CACHE_MP4[cache_key][-5:]
                         media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
                         return StreamingResponse(
                             content=iter(last_chunks),
@@ -263,8 +259,8 @@ async def proxy(url: str, request: Request):
                             headers={'Content-Type': media_type}
                         )
                 if '.ts' in url.lower() or '/hl' in url.lower():
-                    if client_ip in IP_CACHE_TS and IP_CACHE_TS[client_ip]:
-                        last_chunks = IP_CACHE_TS[client_ip][-5:]
+                    if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                        last_chunks = IP_CACHE_TS[cache_key][-5:]
                         media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
                         return StreamingResponse(
                             content=iter(last_chunks),
@@ -281,10 +277,10 @@ async def check(url: str, request: Request):
     session = requests.Session()
     if '.m3u8' in url or 'get.php' in url:
         default_headers = {
-        "User-Agent": DEFAULT_USER_AGENT,
-        'Accept-Encoding': 'identity',
-        'Accept': '*/*',
-        'Connection': 'keep-alive'
+            "User-Agent": DEFAULT_USER_AGENT,
+            'Accept-Encoding': 'identity',
+            'Accept': '*/*',
+            'Connection': 'keep-alive'
         }
         response = session.get(url, headers=default_headers, allow_redirects=True, stream=True, timeout=15)
         if response.status_code != 200:
@@ -297,7 +293,6 @@ async def check(url: str, request: Request):
     else:
         return {'message': 'only m3u8 links'}
 
-
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY"}
+    return {"message": "F4MTESTER PROXY v0.0.1"}
