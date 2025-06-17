@@ -156,7 +156,8 @@ async def proxy(url: str, request: Request):
                 headers = default_headers
                 response = session.get(url, allow_redirects=True, stream=True, timeout=60)
 
-            logging.debug(f'agent: {headers['User-Agent']}')
+            agent = headers.get('User-Agent', '')
+            logging.debug(f'agent: {agent}')
 
             if response.status_code in (200, 206):
                 try:
