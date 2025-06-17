@@ -249,8 +249,8 @@ async def proxy(url: str, request: Request):
             elif response.status_code == 404 and ('.ts' in url.lower() or '/hl' in url.lower()):
                 logging.debug(f'codigo: {response.status_code}')
                 attempts += 1
-                AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]                
-                if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]  
+                try:              
                     logging.debug('USANDO CACHE')
                     last_chunks = IP_CACHE_TS[cache_key][-5:]
                     media_type = 'video/mp2t'
@@ -259,6 +259,8 @@ async def proxy(url: str, request: Request):
                         media_type=media_type,
                         headers={'Content-Type': media_type}
                     )
+                except Exception as e:
+                    logging.debug(f'Erro ao usar cache {e}')
                 time.sleep(2)
 
             else:
@@ -276,14 +278,26 @@ async def proxy(url: str, request: Request):
                                 headers={'Content-Type': media_type}
                             )
                     if '.ts' in url.lower() or '/hl' in url.lower():
-                        if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                        # if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                        #     logging.debug('USANDO CACHE')
+                        #     last_chunks = IP_CACHE_TS[cache_key][-5:]
+                        #     media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
+                        #     return StreamingResponse(
+                        #         content=iter(last_chunks),
+                        #         media_type=media_type,
+                        #         headers={'Content-Type': media_type}
+                        #     )
+                        try:              
+                            logging.debug('USANDO CACHE')
                             last_chunks = IP_CACHE_TS[cache_key][-5:]
-                            media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
+                            media_type = 'video/mp2t'
                             return StreamingResponse(
                                 content=iter(last_chunks),
                                 media_type=media_type,
                                 headers={'Content-Type': media_type}
                             )
+                        except Exception as e:
+                            logging.debug(f'Erro ao usar cache {e}')                        
                 time.sleep(2)
 
         except RequestException as e:
@@ -336,4 +350,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.8"}
+    return {"message": "F4MTESTER PROXY v0.0.9"}
