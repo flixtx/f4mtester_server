@@ -59,20 +59,23 @@ def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) ->
     return re.sub(r'^(?!#)\S+', replace_url, playlist_content, flags=re.MULTILINE)
 
 async def stream_response(response, client_ip: str, url: str, headers: dict, sess: requests.Session):
-    if '.mp4' in url.lower() or '.m3u8' in url.lower():
-        cache_key = get_cache_key(client_ip, url)
-    else:
-        cache_key = client_ip
+    # if '.mp4' in url.lower() or '.m3u8' in url.lower():
+    #     cache_key = get_cache_key(client_ip, url)
+    # else:
+    #     cache_key = client_ip
+    cache_key = client_ip
     def generate_chunks(response):
-        mode_ts = False
+        if '.mp4' in url.lower():
+            mode_ts = False
+        elif '.ts' in url.lower() or '/hl' in url.lower():
+            mode_ts = True
         bytes_read = 0
         try:
             for chunk in response.iter_content(chunk_size=4095):
                 if chunk:
                     bytes_read += len(chunk)
                     #if '.mp4' in response.url.lower():
-                    if '.mp4' in url.lower():
-                        mode_ts = False
+                    if '.mp4' in url.lower():                        
                         if cache_key not in IP_CACHE_MP4:
                             IP_CACHE_MP4[cache_key] = []
                         IP_CACHE_MP4[cache_key].append(chunk)
@@ -80,7 +83,6 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
                             IP_CACHE_MP4[cache_key].pop(0)
                     #elif '.ts' in response.url.lower() or '/hl' in response.url.lower():
                     elif '.ts' in url.lower() or '/hl' in url.lower():
-                        logging.debug('guardando cache ts')
                         mode_ts = True
                         if cache_key not in IP_CACHE_TS:
                             IP_CACHE_TS[cache_key] = []
@@ -114,10 +116,11 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
 @app.get("/proxy")
 async def proxy(url: str, request: Request):
     client_ip = request.client.host
-    if '.mp4' in url.lower() or '.m3u8' in url.lower():
-        cache_key = get_cache_key(client_ip, url)
-    else:
-        cache_key = client_ip
+    # if '.mp4' in url.lower() or '.m3u8' in url.lower():
+    #     cache_key = get_cache_key(client_ip, url)
+    # else:
+    #     cache_key = client_ip
+    cache_key = client_ip
     if not url:
         raise HTTPException(status_code=400, detail="No URL provided")
 
@@ -132,6 +135,8 @@ async def proxy(url: str, request: Request):
     max_retries = 7
     attempts = 0
     tried_without_range = False
+
+
 
     while attempts < max_retries:
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
@@ -317,4 +322,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.5"}
+    return {"message": "F4MTESTER PROXY v0.0.6"}
