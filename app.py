@@ -313,14 +313,17 @@ async def proxy(url: str, request: Request):
                             headers={'Content-Type': media_type}
                         )
                 if '.ts' in url.lower() or '/hl' in url.lower():
-                    if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                    try:              
+                        logging.debug('USANDO CACHE')
                         last_chunks = IP_CACHE_TS[cache_key][-5:]
-                        media_type = 'video/mp4' if '.mp4' in url.lower() else 'video/mp2t'
+                        media_type = 'video/mp2t'
                         return StreamingResponse(
                             content=iter(last_chunks),
                             media_type=media_type,
                             headers={'Content-Type': media_type}
                         )
+                    except Exception as e:
+                        logging.debug(f'Erro ao usar cache {e}')   
             time.sleep(2)
 
     raise HTTPException(status_code=502, detail="Falha ao conectar após múltiplas tentativas")
@@ -348,4 +351,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.1.1"}
+    return {"message": "F4MTESTER PROXY v0.1.2"}
