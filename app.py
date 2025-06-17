@@ -80,6 +80,7 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
                             IP_CACHE_MP4[cache_key].pop(0)
                     #elif '.ts' in response.url.lower() or '/hl' in response.url.lower():
                     elif '.ts' in url.lower() or '/hl' in url.lower():
+                        logging.debug('guardando cache ts')
                         mode_ts = True
                         if cache_key not in IP_CACHE_TS:
                             IP_CACHE_TS[cache_key] = []
@@ -316,4 +317,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.4"}
+    return {"message": "F4MTESTER PROXY v0.0.5"}
