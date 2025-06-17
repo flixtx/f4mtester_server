@@ -156,7 +156,7 @@ async def proxy(url: str, request: Request):
                 headers = default_headers
                 response = session.get(url, allow_redirects=True, stream=True, timeout=60)
 
-            #logging.debug(f'Acessando com headers: {headers}')
+            logging.debug(f'agent: {headers['User-Agent']}')
 
             if response.status_code in (200, 206):
                 try:
@@ -216,6 +216,7 @@ async def proxy(url: str, request: Request):
                 attempts += 1
                 AGENT_OF_CHAOS[cache_key] = binascii.b2a_hex(os.urandom(20))[:32]                
                 if cache_key in IP_CACHE_TS and IP_CACHE_TS[cache_key]:
+                    logging.debug('USANDO CACHE')
                     last_chunks = IP_CACHE_TS[cache_key][-5:]
                     media_type = 'video/mp2t'
                     return StreamingResponse(
@@ -300,4 +301,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.2"}
+    return {"message": "F4MTESTER PROXY v0.0.3"}
