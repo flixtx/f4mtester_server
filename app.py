@@ -181,8 +181,8 @@ async def proxy(url: str, request: Request):
             logging.debug(f'agent: {agent}')
 
             if response.status_code in (200, 206):
-                if cache_key in COUNT_CLEAR:
-                    if COUNT_CLEAR.get(cache_key, 0) > 4:
+                if client_ip in COUNT_CLEAR:
+                    if COUNT_CLEAR.get(client_ip, 0) > 4:
                         logging.debug('LIMPANDO CACHES')
                         try:
                             if cache_key in AGENT_OF_CHAOS:
@@ -194,14 +194,14 @@ async def proxy(url: str, request: Request):
                                 del IP_CACHE_TS[cache_key]
                         except:
                             pass
-                if not cache_key in COUNT_CLEAR:
-                    COUNT_CLEAR[cache_key] = 0
-                elif int(COUNT_CLEAR.get(cache_key, 0) > 4):
+                if not client_ip in COUNT_CLEAR:
+                    COUNT_CLEAR[client_ip] = 0
+                elif int(COUNT_CLEAR.get(client_ip, 0) > 4):
                     logging.debug('ZERANDO COUNT CLEAR')
-                    COUNT_CLEAR[cache_key] = 0
+                    COUNT_CLEAR[client_ip] = 0
                 else:
-                    if cache_key in COUNT_CLEAR:
-                        COUNT_CLEAR[cache_key] = COUNT_CLEAR.get(cache_key, 0) + 1                        
+                    if client_ip in COUNT_CLEAR:
+                        COUNT_CLEAR[client_ip] = COUNT_CLEAR.get(client_ip, 0) + 1                        
                 logging.debug(f'acesso ok codigo: {response.status_code}')
                 content_type = response.headers.get('content-type', '').lower()
 
@@ -348,4 +348,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.1.0"}
+    return {"message": "F4MTESTER PROXY v0.1.1"}
