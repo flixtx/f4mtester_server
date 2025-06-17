@@ -136,7 +136,8 @@ async def proxy(url: str, request: Request):
     attempts = 0
     tried_without_range = False
 
-
+    logging.debug(f'cache key: {cache_key}')
+    logging.debug(f'cache ts keys {IP_CACHE_TS.keys()}')
 
     while attempts < max_retries:
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
@@ -322,4 +323,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.6"}
+    return {"message": "F4MTESTER PROXY v0.0.7"}
