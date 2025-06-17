@@ -31,6 +31,7 @@ DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 IP_CACHE_TS = {}
 IP_CACHE_MP4 = {}
 AGENT_OF_CHAOS = {}
+COUNT_CLEAR = {}
 
 def get_cache_key(client_ip: str, url: str) -> str:
     """Gera uma chave única combinando client_ip e url."""
@@ -162,16 +163,27 @@ async def proxy(url: str, request: Request):
             logging.debug(f'agent: {agent}')
 
             if response.status_code in (200, 206):
-                try:
-                    if cache_key in AGENT_OF_CHAOS:
-                        del AGENT_OF_CHAOS[cache_key]
-                    # Limpar caches quando a requisição for bem-sucedida
-                    if cache_key in IP_CACHE_MP4:
-                        del IP_CACHE_MP4[cache_key]
-                    if cache_key in IP_CACHE_TS:
-                        del IP_CACHE_TS[cache_key]
-                except:
-                    pass
+                if cache_key in COUNT_CLEAR:
+                    if COUNT_CLEAR.get(cache_key, 0) > 4:
+                        logging.debug('LIMPANDO CACHES')
+                        try:
+                            if cache_key in AGENT_OF_CHAOS:
+                                del AGENT_OF_CHAOS[cache_key]
+                            # Limpar caches quando a requisição for bem-sucedida
+                            if cache_key in IP_CACHE_MP4:
+                                del IP_CACHE_MP4[cache_key]
+                            if cache_key in IP_CACHE_TS:
+                                del IP_CACHE_TS[cache_key]
+                        except:
+                            pass
+                if not cache_key in COUNT_CLEAR:
+                    COUNT_CLEAR[cache_key] = 0
+                elif int(COUNT_CLEAR.get(cache_key, 0) > 4):
+                    logging.debug('ZERANDO COUNT CLEAR')
+                    COUNT_CLEAR[cache_key] = 0
+                else:
+                    if cache_key in COUNT_CLEAR:
+                        COUNT_CLEAR[cache_key] = COUNT_CLEAR.get(cache_key, 0) + 1                        
                 logging.debug(f'acesso ok codigo: {response.status_code}')
                 content_type = response.headers.get('content-type', '').lower()
 
@@ -304,4 +316,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.3"}
+    return {"message": "F4MTESTER PROXY v0.0.4"}
