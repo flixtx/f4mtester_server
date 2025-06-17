@@ -71,11 +71,10 @@ def rewrite_m3u8_urls(playlist_content: str, base_url: str, request: Request) ->
     return re.sub(r'^(?!#)\S+', replace_url, playlist_content, flags=re.MULTILINE)
 
 async def stream_response(response, client_ip: str, url: str, headers: dict, sess: requests.Session):
-    # if '.mp4' in url.lower() or '.m3u8' in url.lower():
-    #     cache_key = get_cache_key(client_ip, url)
-    # else:
-    #     cache_key = client_ip
-    cache_key = client_ip
+    if '.mp4' in url.lower() or '.m3u8' in url.lower():
+        cache_key = get_cache_key(client_ip, url)
+    else:
+        cache_key = client_ip
     def generate_chunks(response):
         if '.mp4' in url.lower():
             mode_ts = False
@@ -129,11 +128,10 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
 async def proxy(url: str, request: Request):
     #client_ip = request.client.host
     client_ip = get_ip(request)
-    # if '.mp4' in url.lower() or '.m3u8' in url.lower():
-    #     cache_key = get_cache_key(client_ip, url)
-    # else:
-    #     cache_key = client_ip
-    cache_key = client_ip
+    if '.mp4' in url.lower() or '.m3u8' in url.lower():
+        cache_key = get_cache_key(client_ip, url)
+    else:
+        cache_key = client_ip
     if not url:
         raise HTTPException(status_code=400, detail="No URL provided")
 
@@ -149,8 +147,8 @@ async def proxy(url: str, request: Request):
     attempts = 0
     tried_without_range = False
 
-    logging.debug(f'cache key: {cache_key}')
-    logging.debug(f'cache ts keys {IP_CACHE_TS.keys()}')
+    #logging.debug(f'cache key: {cache_key}')
+    #logging.debug(f'cache ts keys {IP_CACHE_TS.keys()}')
 
     while attempts < max_retries:
         if not ('.m3u8' in url.lower() or '.mp4' in url.lower() or '.ts' in url.lower() or '/hl' in url.lower()):
@@ -350,4 +348,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.9"}
+    return {"message": "F4MTESTER PROXY v0.1.0"}
