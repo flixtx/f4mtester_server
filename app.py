@@ -33,6 +33,18 @@ IP_CACHE_MP4 = {}
 AGENT_OF_CHAOS = {}
 COUNT_CLEAR = {}
 
+def get_ip(request):
+    forwarded_for = request.headers.get("x-forwarded-for")
+    real_ip = request.headers.get("x-real-ip")
+
+    if forwarded_for:
+        ip = forwarded_for.split(",")[0].strip()  # pega o primeiro IP da lista
+    elif real_ip:
+        ip = real_ip
+    else:
+        ip = request.client.host  # fallback
+    return ip
+
 def get_cache_key(client_ip: str, url: str) -> str:
     """Gera uma chave única combinando client_ip e url."""
     return f"{client_ip}:{url}"
@@ -115,7 +127,8 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
 
 @app.get("/proxy")
 async def proxy(url: str, request: Request):
-    client_ip = request.client.host
+    #client_ip = request.client.host
+    client_ip = get_ip(request)
     # if '.mp4' in url.lower() or '.m3u8' in url.lower():
     #     cache_key = get_cache_key(client_ip, url)
     # else:
@@ -323,4 +336,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.0.7"}
+    return {"message": "F4MTESTER PROXY v0.0.8"}
