@@ -69,14 +69,16 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
             for chunk in response.iter_content(chunk_size=4095):
                 if chunk:
                     bytes_read += len(chunk)
-                    if '.mp4' in response.url.lower():
+                    #if '.mp4' in response.url.lower():
+                    if '.mp4' in url.lower():
                         mode_ts = False
                         if cache_key not in IP_CACHE_MP4:
                             IP_CACHE_MP4[cache_key] = []
                         IP_CACHE_MP4[cache_key].append(chunk)
                         if len(IP_CACHE_MP4[cache_key]) > 20:
                             IP_CACHE_MP4[cache_key].pop(0)
-                    elif '.ts' in response.url.lower() or '/hl' in response.url.lower():
+                    #elif '.ts' in response.url.lower() or '/hl' in response.url.lower():
+                    elif '.ts' in url.lower() or '/hl' in url.lower():
                         mode_ts = True
                         if cache_key not in IP_CACHE_TS:
                             IP_CACHE_TS[cache_key] = []
