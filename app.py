@@ -356,4 +356,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.1.2"}
+    return {"message": "F4MTESTER PROXY v0.1.3"}
