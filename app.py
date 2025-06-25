@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 import urllib.parse
@@ -123,6 +123,7 @@ async def stream_response(response, client_ip: str, url: str, headers: dict, ses
             yield chunk
         except StopIteration:
             break
+
 
 @app.get("/proxy")
 async def proxy(url: str, request: Request):
@@ -327,6 +328,10 @@ async def proxy(url: str, request: Request):
             time.sleep(2)
 
     raise HTTPException(status_code=502, detail="Falha ao conectar após múltiplas tentativas")
+
+@app.head("/proxy")
+async def proxy_head(url: str, request: Request):
+    return Response(status_code=200)
 
 @app.get("/check")
 async def check(url: str, request: Request):
