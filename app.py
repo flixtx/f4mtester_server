@@ -206,13 +206,13 @@ async def proxy(url: str, request: Request):
                 logging.debug(f'acesso ok codigo: {response.status_code}')
                 content_type = response.headers.get('content-type', '').lower()
 
-                if 'application/vnd.apple.mpegurl' in content_type or '.m3u8' in url.lower():
+                if 'application/x-mpegURL' in content_type or 'application/vnd.apple.mpegurl' in content_type or '.m3u8' in url.lower():
                     base_url = url.rsplit('/', 1)[0]
                     playlist_content = response.content.decode('utf-8', errors='ignore')
                     rewritten_playlist = rewrite_m3u8_urls(playlist_content, base_url, request)
                     return StreamingResponse(
                         content=iter([rewritten_playlist.encode('utf-8')]),
-                        media_type='application/vnd.apple.mpegurl'
+                        media_type='application/x-mpegURL'
                     )
 
                 response_headers = {
@@ -356,4 +356,4 @@ async def check(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "F4MTESTER PROXY v0.1.3"}
+    return {"message": "F4MTESTER PROXY v0.1.4"}
