@@ -99,10 +99,11 @@ async def proxy(url: str, request: Request):
 
 @app.get("/")
 def main_index():
-    return {"message": "StreamFlix Proxy Online"}
+    return {"message": "App Online"}
 
 # Iniciar app com leitura da PORT
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8080))
     uvicorn.run("main:app", host="0.0.0.0", port=port)
+
